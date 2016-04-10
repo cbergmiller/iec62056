@@ -1,30 +1,30 @@
 
 
 MEDIUM = {
-	'0': 'abstract',
-	'1': 'electricity',
-	'4': 'heating costs',
-	'5': 'cold',
-	'6': 'heat',
-	'7': 'gas',
-	'8': 'water',
-	'9': 'hot water',
+	'0': 'Abstract',
+	'1': 'Electricity',
+	'4': 'Heat cost',
+	'5': 'Cooling',
+	'6': 'Heat',
+	'7': 'Gas',
+	'8': 'Cold water',
+	'9': 'Hot water',
 }
 
 MEASURE_ELECTRICITY = {
-	'0': 'general function',
-	'1': 'sum active power +',
-	'2': 'sum active power -',
-	'3': 'sum reactive power +',
-	'4': 'sum reactive power -',
-	'5': 'sum reactive power Q I',
-	'6': 'sum reactive power Q II',
-	'7': 'sum reactive power Q III',
-	'8': 'sum reactive power Q IV',
-	'9': 'sum apparent power +',
-	'10': 'sum apparent power -',
-	'13': 'power factor',
-	'14': 'frequency',
+	'0': 'General purpose',
+	'1': 'Sum active power +',
+	'2': 'Sum active power -',
+	'3': 'Sum reactive power +',
+	'4': 'Sum reactive power -',
+	'5': 'Sum reactive power Q I',
+	'6': 'Sum reactive power Q II',
+	'7': 'Sum reactive power Q III',
+	'8': 'Sum reactive power Q IV',
+	'9': 'Sum apparent power +',
+	'10': 'Sum apparent power -',
+	'13': 'Power factor',
+	'14': 'Frequency',
 	'21': 'L1 active power +',
 	'22': 'L1 active power -',
 	'23': 'L1 reactive power +',
@@ -64,10 +64,17 @@ MEASURE_ELECTRICITY = {
 	'71': 'L3 current',
 	'72': 'L3 voltage',
 	'73': 'L3 power factor',
-	'94': 'country code',
-	'C': 'service',
-	'F': 'error message',
-	'L': 'list',
+	'81': 'Angles',
+	'82': 'Unitless quantity',
+	'91': 'Neutral current',
+	'92': 'Neutral voltage',
+	'94': 'Country specific identifier',
+	'96': 'Service entry',
+	'97': 'Error message',
+	'98': 'List',
+	'C': 'Service',
+	'F': 'Error message',
+	'L': 'List',
 	'P': 'Datenprofile, Lastgang P.01/ P.02, Betriebslogbuch P.98/ P.99',
 }
 
@@ -77,21 +84,57 @@ MEASURE_THERMAL = {
 }
 
 MODE_ELECTRICITY = {
-	'1': 'cumulative minimum',
-	'2': 'cumulative maximum',
-	'3': 'minimum 1',
-	'4': 'average',
-	'5': 'previous average',
-	'6': 'maximum 1',
-	'7': 'instantaneous value',
-	'8': 'meter reading',
-	'9': '',
+	'0': 'Billing period average',
+	'1': 'Cumulative minimum 1',
+	'2': 'Cumulative maximum 1',
+	'3': 'Minimum 1',
+	'4': 'Current average 1',
+	'5': 'Last average 1',
+	'6': 'Maximum 1',
+	'7': 'Instantaneous value',
+	'8': 'Time integral 1',
+	'9': 'Time integral 2',
+	'10': 'Time integral 3',
+	'11': 'Cumulative minimum 2',
+	'12': 'Cumulative maximum 2',
+	'13': 'Minimum 2',
+	'14': 'Current average 2',
+	'15': 'Last average 2',
+	'16': 'Maximum 2',
+
+	'21': 'Cumulative minimum 3',
+	'22': 'Cumulative maximum 3',
+	'23': 'Minimum 3',
+	'24': 'Current average 3',
+	'25': 'Last average 3',
+	'26': 'Maximum 3',
+
+	'27': 'Current average 5',
+	'28': 'Current average 6',
+	'29': 'Time integral 5',
+	'30': 'Time integral 6',
+
+	'31': 'Under limit threshold',
+	'32': 'Under limit occurrence counter',
+	'33': 'Under limit duration',
+	'34': 'Under limit magnitude',
+	'35': 'Over limit threshold',
+	'36': 'Over limit occurrence counter',
+	'37': 'Over limit duration',
+	'38': 'Over limit magnitude',
+	'39': 'Missing threshold',
+	'40': 'Missing occurrence counter',
+	'41': 'Missing duration',
+	'42': 'Missing magnitude',
+
+	'55': 'Test average',
+	'58': 'Time integral 4',
 }
 
 
 class Value(object):
 	"""
-	Value represents a measured valus.
+	Value represents a measured value.
 	Values are identified with the Object Identification System (OBIS).
 	"""
 	def __init__(self, medium='1', channel='1', measure='0', mode='0', rate='0', previous=None, unit=None, value=None):
@@ -104,3 +147,31 @@ class Value(object):
 		self.unit = unit
 		self.value = value
 
+	def __unicode__(self):
+		return u'{} - {} - {}: {} {}'.format(
+			self.medium_display,
+			self.measure_display,
+			self.mode_display,
+			self.value,
+			self.unit
+		)
+
+	@property
+	def medium_display(self):
+		return MEDIUM.get(self.medium, 'unknown')
+
+	@property
+	def measure_display(self):
+		if self.medium == '1':
+			measures = MEASURE_ELECTRICITY
+		else:
+			return 'unknown'
+		return measures.get(self.measure, 'unknown')
+
+	@property
+	def mode_display(self):
+		if self.medium == '1':
+			modes = MODE_ELECTRICITY
+		else:
+			return 'unknown'
+		return modes.get(self.mode, 'unknown')
