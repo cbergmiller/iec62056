@@ -147,7 +147,7 @@ class Value(object):
 		self.unit = unit
 		self.value = value
 
-	def __unicode__(self):
+	def __str__(self):
 		return u'{} - {} - {}: {} {}'.format(
 			self.medium_display,
 			self.measure_display,

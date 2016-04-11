@@ -1,12 +1,19 @@
 import re
 import serial
 import logging
+import binascii
 from contextlib import contextmanager
 
 from .value import Value
 
 _logger = logging.getLogger('iec62056_client')
 _logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+ch.setFormatter(formatter)
+_logger.addHandler(ch)
+
 
 BAUDRATES = {
 	'B': {
@@ -44,8 +51,11 @@ class Client(object):
 		"""
 		Read the metering data.
 		"""
-		with self.serial_connection:
+		with self.serial_connection():
 			self._send_sign_on()
+			# while True:
+			# 	l = self.ser.readline()
+			# 	print(l.decode('ascii'))
 			self._read_identification()
 			self._send_ack_with_options()
 			if self.ser.baudrate != self.target_baudrate:
@@ -78,33 +88,53 @@ class Client(object):
 			_logger.debug('sending sign on message for device address {}'.format(device_addr))
 		self.ser.write(cmd)
 
-	def _send_ack_with_options(self, protocol_control_char='0', mode='0'):
+	def _send_ack_with_options(self, protocol_control_char='1', mode='2'):
 		"""Send the 'acknowlege with options' message."""
 		_logger.debug('sending acknowledge with options message (baudrate: {})'.format(self.target_baudrate))
 		_baudrate = BAUDRATES.get(self.protocol_mode).get(self.target_baudrate)
 		cmd = bytes('\x06{}{}{}\r\n'.format(protocol_control_char, _baudrate, mode), 'ascii')
+		_logger.debug('command: {}'.format(binascii.hexlify(cmd)))
 		self.ser.write(cmd)
 
 	def _read_identification(self):
 		_logger.debug('reading identification')
-		line = self.ser.readline()
-		id_data = re.match('/(\w{3})(\w)(\\\w)?(\w+)', line)
+		line1 = self.ser.readline().decode('ascii')
+		line2 = self.ser.readline().decode('ascii')
+		_logger.debug(line1)
+		_logger.debug(line2)
+		id_data = re.match('/(\w{3})(\w)\\\\(\w)?(.+)', line2)
 		if not id_data:
 			raise IOError
 		maker_id = id_data.group(1)
 		baudrate_id = id_data.group(2)
 		mode_id = id_data.group(3)
 		meter_id = id_data.group(4)
+		_logger.info('maker: {}, baudrate: {}, mode: {}, meter: {}'.format(maker_id, baudrate_id, mode_id, meter_id))
 
 	def _read_data_msg(self):
 		"""Read a data message."""
 		self.values.clear()
-		dataset = re.compile('(\w+)-(\w+):(\w+).(\w+).(\w+)*(\w+)?')
-		end = '!\r\n\x03'
+		data_pattern = re.compile('(\w+)-(\w+):(\w+).(\w+).(\w+)*(\w+)?')
+		value_pattern = re.compile('\((.*?)\)')
+		end = b'!\r\n\x03'
 		while True:
-			line = self.ser.readline()
-			osis_data = dataset.match(line)
+			line = self.ser.readline().decode('ascii')
+			_logger.debug(line)
+			osis_data = data_pattern.match(line)
+			value_data = value_pattern.search(line)
+			if not value_data:
+				_logger.warning('No value match')
+				continue
+			value_groups = value_data.groups()
+			if not value_groups:
+				_logger.warning('No value groups')
+				continue
+			v = value_groups[0].split('*')
+			_value = v[0]
+			_unit = v[1] if len(v) == 2 else None
+
 			if not osis_data:
+				_logger.warning('No osis data')
 				continue
 			value = Value(
 				medium=osis_data.group(1),
@@ -113,9 +143,11 @@ class Client(object):
 				mode=osis_data.group(4),
 				rate=osis_data.group(5),
 				previous=osis_data.group(6),
-				value=None,
-				unit=None
+				value=_value,
+				unit=_unit
 			)
+			print(value)
 			self.values.append(value)
+			_logger.debug(str(value))
 			if end in line:
 				break
