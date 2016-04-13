@@ -132,29 +132,31 @@ MODE_ELECTRICITY = {
 }
 
 
-class Value(object):
+class DataSet(object):
 	"""
-	Value represents a measured value.
-	Values are identified with the Object Identification System (OBIS).
+	DataSet represents a DLMS/COSEM Data-Set using
+	the Object Identification System (OBIS).
 	"""
-	def __init__(self, medium='1', channel='1', measure='0', mode='0', rate='0', previous=None, unit=None, value=None):
+	def __init__(self, medium='1', channel='1', measure='0', mode='0', rate='0', billing_period=None):
 		self.medium = medium
 		self.channel = channel
 		self.measure = measure
 		self.mode = mode
 		self.rate = rate
-		self.previous = previous
-		self.unit = unit
-		self.value = value
+		self.billing_period = billing_period
+		self.values = []
 
 	def __str__(self):
-		return u'{} - {} - {}: {} {}'.format(
+		return u'{} - {} - {}{}: {}'.format(
 			self.medium_display,
 			self.measure_display,
 			self.mode_display,
-			self.value,
-			self.unit
+			' - {}'.format(self.billing_period_display) if self.billing_period else '',
+			', '.join([str(v) for v in self.values])
 		)
+
+	def add_value(self, value, unit):
+		self.values.append(Value(value, unit))
 
 	@property
 	def medium_display(self):
@@ -175,3 +177,21 @@ class Value(object):
 		else:
 			return 'unknown'
 		return modes.get(self.mode, 'unknown')
+
+	@property
+	def billing_period_display(self):
+		return 'period {}'.format(self.billing_period)
+
+
+class Value(object):
+	"""
+	Value represents a value for a Data-Set.
+	"""
+	def __init__(self, value, unit):
+		self.value = value
+		self.unit = unit
+
+	def __str__(self):
+		if self.unit:
+			return '{} {}'.format(self.value, self.unit)
+		return str(self.value)

@@ -4,7 +4,7 @@ import logging
 import binascii
 from contextlib import contextmanager
 
-from .value import Value
+from .dataset import DataSet
 
 _logger = logging.getLogger('iec62056_client')
 _logger.setLevel(logging.DEBUG)
@@ -54,7 +54,7 @@ class Client(object):
 		self.ser = None
 		self.protocol_mode = protocol_mode
 		self.target_baudrate = target_baudrate
-		self.values = []
+		self.data_sets = []
 
 	def read(self):
 		"""
@@ -122,17 +122,26 @@ class Client(object):
 
 	def _read_data_msg(self):
 		"""Read a data message."""
-		self.values.clear()
+		self.data_sets.clear()
 		data_pattern = re.compile('(\w+)-(\w+):(\w+).(\w+).(\w+)*(\w+)?')
 		value_pattern = re.compile('\((.*?)\)')
 		end = b'\x03'
+		_logger.debug('end char: ' + binascii.hexlify(end).decode('ascii'))
 		while True:
 			binary_line = self.ser.readline()
 			_logger.debug(binascii.hexlify(binary_line))
 			line = binary_line.decode('ascii')
-			_logger.debug(line)
+			_logger.debug(line.replace('\r\n', ''))
+
+			if end in binary_line:
+				_logger.info('end of data message detected')
+				# bcc = line[1]
+				break
 
 			osis_data = data_pattern.match(line)
+			if not osis_data:
+				_logger.warning('No osis data')
+				continue
 			value_data = value_pattern.search(line)
 			if not value_data:
 				_logger.warning('No value match')
@@ -141,26 +150,19 @@ class Client(object):
 			if not value_groups:
 				_logger.warning('No value groups')
 				continue
-			v = value_groups[0].split('*')
-			_value = v[0]
-			_unit = v[1] if len(v) == 2 else None
 
-			if not osis_data:
-				_logger.warning('No osis data')
-				continue
-			value = Value(
+			data_set = DataSet(
 				medium=osis_data.group(1),
 				channel=osis_data.group(2),
 				measure=osis_data.group(3),
 				mode=osis_data.group(4),
 				rate=osis_data.group(5),
-				previous=osis_data.group(6),
-				value=_value,
-				unit=_unit
+				billing_period=osis_data.group(6)
 			)
-			self.values.append(value)
-			_logger.debug(str(value))
-			if end in binary_line:
-				_logger.info('end of data message detected')
-				# bcc = line[1]
-				break
+			for value_group in value_groups:
+				v = value_group.split('*')
+				value = v[0]
+				unit = v[1] if len(v) == 2 else None
+				data_set.add_value(value, unit)
+
+			self.data_sets.append(data_set)
